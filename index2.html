@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flight Delay Predictor</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"/>
+</head>
+<body>
+  <div class="container mt-5">
+    <h2 class="text-center">Flight Delay Predictor</h2>
+    <form id="predict-form">
+      <div class="form-group">
+        <label for="CRSDepHour">Departure Hour (0-23)</label>
+        <input type="number" class="form-control" id="CRSDepHour" required />
+      </div>
+      <div class="form-group">
+        <label for="DayofWeek">Day of Week (0=Mon, 6=Sun)</label>
+        <input type="number" class="form-control" id="DayofWeek" required />
+      </div>
+      <div class="form-group">
+        <label for="Month">Month (1-12)</label>
+        <input type="number" class="form-control" id="Month" required />
+      </div>
+      <div class="form-group">
+        <label for="OriginCode">Origin Airport Code (Numeric)</label>
+        <input type="number" class="form-control" id="OriginCode" required />
+      </div>
+      <div class="form-group">
+        <label for="DestCode">Destination Airport Code (Numeric)</label>
+        <input type="number" class="form-control" id="DestCode" required />
+      </div>
+      <div class="form-group">
+        <label for="temp">Temperature (°C)</label>
+        <input type="number" step="0.01" class="form-control" id="temp" required />
+      </div>
+      <div class="form-group">
+        <label for="prcp">Precipitation (mm)</label>
+        <input type="number" step="0.01" class="form-control" id="prcp" required />
+      </div>
+      <div class="form-group">
+        <label for="wspd">Wind Speed (km/h)</label>
+        <input type="number" step="0.01" class="form-control" id="wspd" required />
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Predict Delay</button>
+    </form>
+    <div class="mt-4" id="result"></div>
+  </div>
+
+  <script>
+  document.getElementById("predict-form").addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const data = {
+      CRSDepHour: +document.getElementById("CRSDepHour").value,
+      DayofWeek: +document.getElementById("DayofWeek").value,
+      Month: +document.getElementById("Month").value,
+      OriginCode: +document.getElementById("OriginCode").value,
+      DestCode: +document.getElementById("DestCode").value,
+      temp: +document.getElementById("temp").value,
+      prcp: +document.getElementById("prcp").value,
+      wspd: +document.getElementById("wspd").value,
+    };
+
+    //  Validation: realistic ranges
+    const errorOutput = document.getElementById("result");
+    if (data.temp < -90 || data.temp > 60) {
+      errorOutput.innerHTML = `<div class="alert alert-danger">Temperature must be between -90°C and 60°C.</div>`;
+      return;
+    }
+    if (data.prcp < 0 || data.prcp > 500) {
+      errorOutput.innerHTML = `<div class="alert alert-danger">Precipitation must be between 0 and 500 mm.</div>`;
+      return;
+    }
+    if (data.wspd < 0 || data.wspd > 150) {
+      errorOutput.innerHTML = `<div class="alert alert-danger">Wind speed must be between 0 and 150 km/h.</div>`;
+      return;
+    }
+
+    try {
+      const response = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      const output = document.getElementById("result");
+
+      if ("error" in result) {
+        output.innerHTML = `<div class="alert alert-warning">Error: ${result.error}</div>`;
+        return;
+      }
+
+      let html = `<h4>Prediction Results</h4><ul class="list-group">`;
+      for (const [model, pred] of Object.entries(result)) {
+        const status = pred === 1 ? "Delayed" : "On Time";
+        const badgeClass = pred === 1 ? "badge-danger" : "badge-success";
+        html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                  ${model}
+                  <span class="badge ${badgeClass} badge-pill">${status}</span>
+                </li>`;
+      }
+      html += "</ul>";
+      output.innerHTML = html;
+
+    } catch (error) {
+      document.getElementById("result").innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+    }
+  });
+</script>
+</body>
+</html>
